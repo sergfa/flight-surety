@@ -2,11 +2,28 @@
 pragma solidity ^0.8.0;
 
 
+interface FlightSuretyDataInterface {
+    function registerAirline(string memory name, address account) external;
+     function isAirline(address account) external view returns(bool);
+    function getNumberOfAirlines() external view returns(uint);
+    function submitAirlineFunds(string memory name) external payable;
+}
+
 /************************************************** */
 /* FlightSurety Smart Contract                      */
 /************************************************** */
 contract FlightSuretyApp {
 
+    enum VoteActions {OPERATIONAL, ADD_AIRLINE}
+
+    struct VoteItem {
+        uint8 votedCount;
+        mapping(address => bool) accounts; 
+    }
+    
+    bool private _operational;
+    mapping(bytes32 => VoteItem) private _votes;
+    FlightSuretyDataInterface private _flightSuretyData;
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
@@ -36,15 +53,9 @@ contract FlightSuretyApp {
     // Modifiers help avoid duplication of code. They are typically used to validate something
     // before a function is allowed to be executed.
 
-    /**
-     * @dev Modifier that requires the "operational" boolean variable to be "true"
-     *      This is used on all state changing functions to pause the contract in
-     *      the event there is an issue that needs to be fixed
-     */
     modifier requireIsOperational() {
-        // Modify to call data contract's status
-        require(true, "Contract is currently not operational");
-        _; // All modifiers require an "_" which indicates where the function body will be added
+        require(_operational, "Contract is currently not operational");
+        _;
     }
 
     /**
@@ -55,6 +66,18 @@ contract FlightSuretyApp {
         _;
     }
 
+    modifier requireNotEmptyAddress(address account) {
+        require(account != address(0), "Should be valid addrress");
+        _;
+    }
+
+    /****************************************************************************************** */
+    /*                                       EVENTS                                              */
+    /*********************************************************************************************/
+
+    event OperationalChanged(bool value); // emitted when operational status changes
+    event AirlineRegistered(string airplaneName, bool success, uint votes); // emitted when airline registered
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -63,16 +86,40 @@ contract FlightSuretyApp {
      * @dev Contract constructor
      *
      */
-    constructor() {
+    constructor(address dataContractAddress) {
+        require(dataContractAddress != address(0), "Should be valid address of data contract");
         contractOwner = msg.sender;
+        _flightSuretyData = FlightSuretyDataInterface(dataContractAddress);
+        _operational = true;
     }
 
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
 
-    function isOperational() public pure returns (bool) {
-        return true; // Modify to call data contract's status
+    function isOperational() public view returns (bool) {
+        return _operational;
+    }
+
+    function setOperational(bool value) public requireContractOwner {
+        require(_operational != value, "New value should be different than current value");
+        _operational  = value;
+        emit OperationalChanged(value);
+    }
+
+    function vote(bytes32 key, address account, uint total) private returns (bool) {
+        require(_votes[key].accounts[account] == false, "Account already voted");
+        VoteItem storage voteItem = _votes[key];
+        uint count = voteItem.votedCount + 1;
+        bool allowed = (count * 100 / total ) >= 50;
+        if(allowed) {
+            // prepare mapping for the next voting...
+            delete( _votes[key]);
+        } else {
+            voteItem.votedCount++;
+            voteItem.accounts[account] = true;
+        } 
+        return allowed;   
     }
 
     /********************************************************************************************/
@@ -83,12 +130,29 @@ contract FlightSuretyApp {
      * @dev Add an airline to the registration queue
      *
      */
-    function registerAirline()
+    function registerAirline(string memory name, address account)
+        requireNotEmptyAddress(account)
         external
-        pure
         returns (bool success, uint256 votes)
     {
-        return (success, 0);
+        require(_flightSuretyData.isAirline(msg.sender), "Sender shoud be an Airline");
+        uint airlinesCount = _flightSuretyData.getNumberOfAirlines();
+        
+        if (airlinesCount < 4) {
+            _flightSuretyData.registerAirline(name, account);
+            success = true;
+        } else {
+            bytes32  key = keccak256(abi.encodePacked(uint8(VoteActions.ADD_AIRLINE), name));
+            success = vote(key, msg.sender, airlinesCount);
+            votes = _votes[key].votedCount;
+            if(success) {
+                  _flightSuretyData.registerAirline(name, account);
+            }
+        }
+            
+        emit AirlineRegistered(name, success, votes);
+        
+        return (success, votes);
     }
 
     /**
