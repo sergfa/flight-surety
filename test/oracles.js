@@ -8,6 +8,7 @@ contract('Oracles', async (accounts) => {
   var config;
   before('setup contract', async () => {
     config = await Test.Config(accounts);
+    await config.flightSuretyData.authorizeContract(config.flightSuretyApp.address);
 
     // Watch contract events
     const STATUS_CODE_UNKNOWN = 0;

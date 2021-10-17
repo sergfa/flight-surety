@@ -2,14 +2,36 @@
 pragma solidity ^0.8.0;
 
 contract FlightSuretyData {
+    struct Flight {
+        bool isRegistered;
+        uint8 statusCode;
+        uint256 updatedTimestamp;
+        address airline;
+    }
 
-    
     struct Airline {
         address account;
         bool funded;
         bool registered;
     }
-    
+
+    struct Oracle {
+        bool isRegistered;
+        uint8[3] indexes;
+    }
+
+    struct Passenger {
+        uint256 balance;
+        bool registered;
+        mapping(bytes32 => FlightInsurance) insurances;
+    }
+
+    struct FlightInsurance {
+        uint256 cost;
+        bool registered;
+        bool credited;
+    }
+
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
@@ -17,10 +39,17 @@ contract FlightSuretyData {
     address private contractOwner; // Account used to deploy contract
     bool private operational = true; // Blocks all state changes throughout the contract if false
     mapping(string => Airline) private _airlines; // Maps the name of airline to its data
-    mapping(address => bool) private _airlinesAccounts; // Defines if address of airline is regestered
-    uint private _airlinesCount; // Number of registred airlines
+    mapping(address => string) private _airlinesAccounts; // Maps airline address to its name
+    uint256 private _airlinesCount; // Number of registred airlines
     mapping(address => bool) private _authorizedContracts; // Defines if contract is authorized to use this data contract
-  
+    // Track all registered oracles
+    mapping(address => Oracle) private _oracles;
+    // Track all flights
+    mapping(bytes32 => Flight) private _flights;
+    // Maps flight key to insurees
+    mapping(bytes32 => address[]) _flightPassengers;
+    mapping(address => Passenger) _passengers;
+
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
@@ -60,7 +89,10 @@ contract FlightSuretyData {
     }
 
     modifier requireContractAuthorized() {
-        require(_authorizedContracts[msg.sender], "Contract is not authorized to use this contract");
+        require(
+            _authorizedContracts[msg.sender],
+            "Contract is not authorized to use this contract"
+        );
         _;
     }
 
@@ -86,6 +118,16 @@ contract FlightSuretyData {
         operational = mode;
     }
 
+    function authorizeContract(address contractAddress) public requireContractOwner requireIsOperational {
+        require(_authorizedContracts[contractAddress] == false, "Contract already authorized");
+        _authorizedContracts[contractAddress] = true;
+    }
+
+    function deauthorizeContract(address contractAddress) public requireContractOwner requireIsOperational {
+        require(_authorizedContracts[contractAddress], "Contract  is not authorized");
+        _authorizedContracts[contractAddress] = false;
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -95,68 +137,179 @@ contract FlightSuretyData {
      *      Can only be called from FlightSuretyApp contract
      *
      */
-    function registerAirline(string memory name, address account) external requireIsOperational requireContractAuthorized {
-       require(_airlines[name].registered, "Airline already regestered");
-       _registerAirline(name, account);
+    function registerAirline(string memory name, address account)
+        external
+        requireIsOperational
+        requireContractAuthorized
+    {
+        require(
+            _airlines[name].registered == false,
+            "Airline already regestered"
+        );
+        _registerAirline(name, account);
     }
 
-    function submitAirlineFunds(string memory name) external payable requireIsOperational requireContractAuthorized {
-         _airlines[name].funded = true;
+    function submitAirlineFunds(address account)
+        external
+        requireIsOperational
+        requireContractAuthorized
+    {
+        string memory name = _airlinesAccounts[account];
+        require(_airlines[name].registered, "Airline is not registered");
+        _airlines[name].funded = true;
     }
-    function isAirline(address account) external view returns(bool) {
-        return _airlinesAccounts[account];
-    } 
 
-     function getNumberOfAirlines() external view returns(uint) {
-         return _airlinesCount;
-     }
+    function isAirline(address account) external view returns (bool) {
+        string memory name = _airlinesAccounts[account];
+        return _airlines[name].registered;
+    }
 
-     function _registerAirline(string memory name, address account) private {
+    function isActiveAirline(address account) external view returns (bool) {
+        string memory name = _airlinesAccounts[account];
+        return _airlines[name].funded;
+    }
+
+    function getNumberOfAirlines() external view returns (uint256) {
+        return _airlinesCount;
+    }
+
+    function registerFlight(bytes32 key, address airline)
+        external
+        requireIsOperational
+        requireContractAuthorized
+    {
+        require(
+            _flights[key].isRegistered == false,
+            "Flight already registered"
+        );
+        _flights[key].isRegistered = true;
+        _flights[key].airline = airline;
+    }
+
+    function updateFlightStatus(bytes32 flightKey, uint8 statusCode)
+        external
+        requireIsOperational
+        requireContractAuthorized
+    {
+        require(_flights[flightKey].isRegistered, "Flight is not registered");
+        _flights[flightKey].statusCode = statusCode;
+        _flights[flightKey].updatedTimestamp = block.timestamp;
+    }
+
+    function registerOracle(address oracle, uint8[3] memory indexes)
+        external
+        requireIsOperational
+        requireContractAuthorized
+    {
+        require(
+            _oracles[oracle].isRegistered == false,
+            "Oracle already registered"
+        );
+        _oracles[oracle] = Oracle({isRegistered: true, indexes: indexes});
+    }
+
+    function getOracleIndecies(address oracle)
+        external
+        view
+        returns (uint8[3] memory)
+    {
+        require(_oracles[oracle].isRegistered, "Oracle is not registered");
+        return _oracles[oracle].indexes;
+    }
+
+    function updateFlightInsurance(
+        bytes32 flightKey,
+        address passenger,
+        uint256 cost
+    ) external requireIsOperational requireContractAuthorized {
+        require(
+            _passengers[passenger].insurances[flightKey].registered == false,
+            "Passenger already registered to the flight"
+        );
+        if (!_passengers[passenger].registered) {
+            _passengers[passenger].registered = true;
+        }
+        _passengers[passenger].insurances[flightKey].registered = true;
+        _passengers[passenger].insurances[flightKey].cost = cost;
+        _flightPassengers[flightKey].push(passenger);
+    }
+
+    function getFlightPassengers(bytes32 flightKey)
+        external
+        view
+        returns (address[] memory)
+    {
+        require(_flights[flightKey].isRegistered, "Flight is not registered");
+        return _flightPassengers[flightKey];
+    }
+
+    function getFlightStatus(bytes32 flightKey) external view returns (uint8) {
+        require(_flights[flightKey].isRegistered, "Flight is not registered");
+        return _flights[flightKey].statusCode;
+    }
+
+    function creditInsuree(
+        bytes32 flightKey,
+        address passenger,
+        uint256 amount
+    ) external requireIsOperational requireContractAuthorized {
+        require(
+            _passengers[passenger].insurances[flightKey].registered,
+            "Passenger is not registered to the flight"
+        );
+        require(
+            _passengers[passenger].insurances[flightKey].credited == false,
+            "Passenger is already credited"
+        );
+        _passengers[passenger].insurances[flightKey].credited = true;
+        _passengers[passenger].balance += amount;
+    }
+
+    function withdrawPassengerBalance(address passenger)
+        external
+        requireIsOperational
+        requireContractAuthorized
+    {
+        require(
+            _passengers[passenger].registered,
+            "Passenger is not registered"
+        );
+        _passengers[passenger].balance = 0;
+    }
+
+    function getPassengerBalance(address passenger)
+        external
+        view
+        returns (uint256)
+    {
+        require(
+            _passengers[passenger].registered,
+            "Passenger is not registered"
+        );
+        return _passengers[passenger].balance;
+    }
+
+    function getPassengerInsuranceCost(address passenger, bytes32 flightKey)
+        external
+        view
+        returns (uint256)
+    {
+        require(
+            _passengers[passenger].registered,
+            "Passenger is not registered"
+        );
+        require(
+            _passengers[passenger].insurances[flightKey].registered,
+            "Passenger is not registered to the flight"
+        );
+        return _passengers[passenger].insurances[flightKey].cost;
+    }
+
+    function _registerAirline(string memory name, address account) private {
         Airline storage airline = _airlines[name];
         airline.account = account;
         airline.registered = true;
-        _airlinesAccounts[account] = true;
+        _airlinesAccounts[account] = name;
         _airlinesCount++;
-    }
-
-
-    /**
-     * @dev Buy insurance for a flight
-     *
-     */
-    function buy() external payable {}
-
-    /**
-     *  @dev Credits payouts to insurees
-     */
-    function creditInsurees() external pure {}
-
-    /**
-     *  @dev Transfers eligible payout funds to insuree
-     *
-     */
-    function pay() external pure {}
-
-    /**
-     * @dev Initial funding for the insurance. Unless there are too many delayed flights
-     *      resulting in insurance payouts, the contract should be self-sustaining
-     *
-     */
-    function fund() public payable {}
-
-    function getFlightKey(
-        address airline,
-        string memory flight,
-        uint256 timestamp
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
-    }
-
-    /**
-     * @dev Fallback function for funding smart contract.
-     *
-     */
-     fallback() external payable {
-        fund();
     }
 }
