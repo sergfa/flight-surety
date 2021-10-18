@@ -78,11 +78,9 @@ contract('Flight Surety Tests', async (accounts) => {
 
     // ACT
     try {
-        await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
+        await config.flightSuretyApp.registerAirline("Airline2", newAirline, {from: config.firstAirline});
     }
-    catch(e) {
-
-    }
+    catch(e) {}
     let result = await config.flightSuretyData.isAirline.call(newAirline); 
 
     // ASSERT
@@ -90,5 +88,66 @@ contract('Flight Surety Tests', async (accounts) => {
 
   });
  
+  it('(airline) should succefully submit funds', async () => {
+    
+    // given
+    const fee = await config.flightSuretyApp.MIN_AIRLINE_FUND.call();
+
+    // when
+    await config.flightSuretyApp.submitAirlineFunds({from: config.firstAirline, value: fee});
+    const expectedResult = await config.flightSuretyData.isActiveAirline.call(config.firstAirline); 
+    
+    // then
+    assert.equal(expectedResult, true, "Airline should be acitvated");
+  });
+
+
+  
+  it('(airline) should succefully register airline by another active airline', async () => {
+    
+    // given
+    const newAirline = accounts[2];
+
+    // when
+    const expectedResult1 = await config.flightSuretyData.isAirline.call(newAirline);
+    await config.flightSuretyApp.registerAirline("Airline2", newAirline,{from: config.firstAirline});
+    const expectedResult2 = await config.flightSuretyData.isAirline.call(newAirline); 
+    
+    // then
+    assert.equal(expectedResult1, false, "Address should not be an existing airline before registering...");
+    assert.equal(expectedResult2, true, "Address should become an airline after registering...");
+  });
+
+  it('(airline) should succefully register airline by consensus of 50%', async () => {
+    
+    // given
+    const fee = await config.flightSuretyApp.MIN_AIRLINE_FUND.call();
+
+    const airline2 = accounts[2];
+    const airline3 = accounts[3];
+    const airline4 = accounts[4];
+    const consensusAirline = accounts[5];
+
+    // when
+    await config.flightSuretyApp.submitAirlineFunds({from: airline2, value: fee});
+    
+    await config.flightSuretyApp.registerAirline("Airline3", airline3,{from: config.firstAirline});
+    await config.flightSuretyApp.submitAirlineFunds({from: airline3, value: fee});
+    
+    await config.flightSuretyApp.registerAirline("Airline4", airline4,{from: config.firstAirline});
+    await config.flightSuretyApp.submitAirlineFunds({from: airline4, value: fee});
+    
+    await config.flightSuretyApp.registerAirline("Consensus Airline", consensusAirline,{from: config.firstAirline});
+    const expectedResult1 = await config.flightSuretyData.isAirline.call(consensusAirline); 
+    
+    await config.flightSuretyApp.registerAirline("Consensus Airline", consensusAirline,{from: airline2});
+    const expectedResult2 = await config.flightSuretyData.isAirline.call(consensusAirline); 
+    
+    // then
+    assert.equal(expectedResult1, false, "Address should not be an airline before it registered by 50% of airlines");
+    assert.equal(expectedResult2, true, "Address should be an airline after it registered by 50% of airlines");
+   
+  });
+
 
 });

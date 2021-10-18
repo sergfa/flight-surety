@@ -4,7 +4,7 @@ const fs = require('fs');
 
 module.exports = function(deployer) {
 
-    let firstAirlineAddress = '0x5FfF5C8c4BCfBE1c67EF487Ca7911062f05aa1dE';
+    let firstAirlineAddress = '0x5FfF5C8c4BCfBE1c67EF487Ca7911062f05aa1dE'; // replace with address from your network
     let firstAirlineName = 'ELAL';
     
     deployer.deploy(flightSuretyData, firstAirlineAddress, firstAirlineName)

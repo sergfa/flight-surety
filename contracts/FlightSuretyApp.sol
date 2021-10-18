@@ -77,7 +77,7 @@ contract FlightSuretyApp {
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
 
-    uint256 private constant MIN_AIRLINE_FUND = 10 ether;
+    uint256 public constant MIN_AIRLINE_FUND = 10 ether;
     bool private _operational;
     mapping(bytes32 => VoteItem) private _votes;
     FlightSuretyDataInterface private _flightSuretyData;
@@ -241,6 +241,7 @@ contract FlightSuretyApp {
         external
         requireIsOperational
         requireIsAirline
+        requireIsAirlineActive(msg.sender)
         returns (bool success, uint256 votes)
     {
         uint256 airlinesCount = _flightSuretyData.getNumberOfAirlines();
