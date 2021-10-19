@@ -19,15 +19,81 @@
         </button>
     </nav>
 
-    <main class="container">
+    <article class="container" style="margin-top: 100px">
 
         <div id="display-wrapper" class="top-20">
         </div>
+        <h3>Check Flight Status</h3>
         <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+            <label class="form">Airline</label> <input type="text" id="status-airline">
         </div>
-    </main>
 
+        <div class="row top-20">
+            <label class="form">Flight</label> <input type="text" id="status-flight">
+        </div>
+        <div class="row top-20">
+            <label class="form">Timestamp</label> <input type="text" id="status-timestamp">
+        </div>
+        <div class="row top-20">
+            <btn class="btn btn-primary" id="status-submit-oracle">Submit to Oracles</btn>
+        </div>
+
+    </article>
+
+    <article class="container" style="margin-top: 20px">
+        <h3>Register Ariline</h3>
+        <div class="row top-20">
+            <label class="form">Address</label> <input type="text" id="reg-airline-address">
+            <label class="form">Name</label> <input type="text" id="reg-airline-name">
+            <btn class="btn btn-primary" id="reg-airline-submit">Submit</btn>
+        </div>
+    </article>
+
+
+    <article class="container" style="margin-top: 20px">
+        <h3>Submit Funds for Ariline (Activate airline)</h3>
+        <div class="row top-20">
+            <label class="form">Airline</label> <input type="text" placeholder="address" id="activate-airline-address">
+            <label class="form">ETH</label> <input type="text" value="10" readonly id="activate-airline-value">
+            <btn class="btn btn-primary" id="activate-airline-submit">Submit</btn>
+        </div>
+    </article>
+
+    <article class="container" style="margin-top: 20px">
+        <h3>Register Flight</h3>
+        <div class="row top-20">
+            <label class="form">Airline</label> <input type="text" id="flight-reg-airline-address">
+        </div>
+        <div class="row top-20">
+            <label class="form">Flight</label> <input type="text" id="flight-reg-flight">
+        </div>
+        <div class="row top-20">
+            <label class="form">Timestamp</label> <input type="text" id="flight-reg-timestamp">
+        </div>
+        <div class="row top-20">
+
+            <btn class="btn btn-primary" id="flight-reg-submit">Submit</btn>
+        </div>
+    </article>
+    <article class="container" style="margin-top: 20px">
+        <h3>Purchase flight Insurance</h3>
+        <div class="row top-20">
+            <label class="form">Airline</label> <input type="text" id="insurance-airline-address">
+        </div>
+        <div class="row top-20">
+            <label class="form">Flight</label> <input type="text" id="insurance-flight">
+        </div>
+        <div class="row top-20">
+            <label class="form">Timestamp</label> <input type="text" id="insurance-flight-timestamp">
+        </div>
+        <div class="row top-20">
+            <label class="form">ETH</label> <input type="text" value="0.01" id="insurance-value">
+        </div>
+        <div class="row top-20">
+
+        <btn class="btn btn-primary" id="insurance-submit">Submit</btn>
+        </div>
+    </article>
 </body>
 
 </html>

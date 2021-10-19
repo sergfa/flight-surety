@@ -330,11 +330,12 @@ contract FlightSuretyApp {
     // region ORACLE MANAGEMENT
 
     // Register an oracle with the contract
-    function registerOracle() external payable requireIsOperational {
+    function registerOracle() external payable requireIsOperational returns(uint8[3] memory) {
         // Require registration fee
         require(msg.value >= REGISTRATION_FEE, "Registration fee is required");
         uint8[3] memory indexes = generateIndexes(msg.sender);
         _flightSuretyData.registerOracle(msg.sender, indexes);
+        return indexes;
     }
 
     function submitOracleResponse(
@@ -356,7 +357,7 @@ contract FlightSuretyApp {
         );
         require(
             oracleResponses[key].isOpen,
-            "Flight or timestamp do not match oracle request"
+            "The status is already handled or was not requested"
         );
 
         oracleResponses[key].responses[statusCode].push(msg.sender);
@@ -367,6 +368,7 @@ contract FlightSuretyApp {
         if (
             oracleResponses[key].responses[statusCode].length >= MIN_RESPONSES
         ) {
+            oracleResponses[key].isOpen = false;
             emit FlightStatusInfo(airline, flight, timestamp, statusCode);
 
             // Handle flight status as appropriate

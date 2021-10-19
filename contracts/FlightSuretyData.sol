@@ -119,7 +119,7 @@ contract FlightSuretyData {
     }
 
     function authorizeContract(address contractAddress) public requireContractOwner requireIsOperational {
-        require(_authorizedContracts[contractAddress] == false, "Contract already authorized");
+        //require(_authorizedContracts[contractAddress] == false, "Contract already authorized");
         _authorizedContracts[contractAddress] = true;
     }
 
@@ -191,7 +191,7 @@ contract FlightSuretyData {
         requireIsOperational
         requireContractAuthorized
     {
-        require(_flights[flightKey].isRegistered, "Flight is not registered");
+        require(_flights[flightKey].isRegistered == true, "Flight is not registered");
         _flights[flightKey].statusCode = statusCode;
         _flights[flightKey].updatedTimestamp = block.timestamp;
     }
@@ -205,7 +205,9 @@ contract FlightSuretyData {
             _oracles[oracle].isRegistered == false,
             "Oracle already registered"
         );
-        _oracles[oracle] = Oracle({isRegistered: true, indexes: indexes});
+        Oracle storage o  = _oracles[oracle];
+        o.isRegistered = true;
+        o.indexes = indexes;
     }
 
     function getOracleIndecies(address oracle)
@@ -213,7 +215,7 @@ contract FlightSuretyData {
         view
         returns (uint8[3] memory)
     {
-        require(_oracles[oracle].isRegistered, "Oracle is not registered");
+        require(_oracles[oracle].isRegistered == true, "Oracle is not registered");
         return _oracles[oracle].indexes;
     }
 
@@ -239,12 +241,12 @@ contract FlightSuretyData {
         view
         returns (address[] memory)
     {
-        require(_flights[flightKey].isRegistered, "Flight is not registered");
+        require(_flights[flightKey].isRegistered == true, "Flight is not registered");
         return _flightPassengers[flightKey];
     }
 
     function getFlightStatus(bytes32 flightKey) external view returns (uint8) {
-        require(_flights[flightKey].isRegistered, "Flight is not registered");
+        require(_flights[flightKey].isRegistered == true, "Flight is not registered");
         return _flights[flightKey].statusCode;
     }
 
